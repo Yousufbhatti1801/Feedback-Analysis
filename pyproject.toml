@@ -1,0 +1,42 @@
+[project]
+name = "feedback-analysis"
+version = "0.1.0"
+description = "Dynamic feedback intelligence dashboard for Islam360 user feedback"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+    "regex>=2024.0",
+    "sentence-transformers>=3.0",
+    "pyarrow>=15.0",
+    "tqdm>=4.66",
+    "datasketch>=1.6",
+    "umap-learn>=0.5.6",
+    "hdbscan>=0.8.36",
+    "scikit-learn>=1.4",
+    "anthropic>=0.39",
+    "streamlit>=1.36",
+    "plotly>=5.20",
+]
+
+[project.optional-dependencies]
+notebook = [
+    "jupyter>=1.0",
+    "ipykernel>=6.29",
+    "nbformat>=5.10",
+]
+dev = [
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/feedback"]
+
+[tool.uv]
+package = true

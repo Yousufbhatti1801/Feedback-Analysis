@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# uv
+.python-version
+uv.lock
+
+# Caches and generated artifacts
+data/cache/
+*.parquet
+*.npy
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets / env
+.env
+.env.local
