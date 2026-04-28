@@ -41,6 +41,7 @@ CSS = f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+
 [data-testid="stAppViewContainer"] {{
     background:
       radial-gradient(1400px 700px at 12% -20%, rgba(90,140,255,0.32), transparent 58%),
@@ -51,23 +52,132 @@ header[data-testid="stHeader"] {{ background: transparent !important; }}
 .main .block-container {{ max-width: 1550px; padding-top: 1rem; }}
 h1, h2, h3 {{ color: {THEME['text']} !important; letter-spacing: -0.02em; }}
 p, li, label, [data-testid="stMarkdownContainer"] {{ color: {THEME['muted']}; }}
-[data-testid="metric-container"] {{
-    background: linear-gradient(180deg, {THEME['panel']} 0%, {THEME['panel_soft']} 100%);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px;
-    padding: 10px;
+
+/* ----- Section divider: ALL CAPS label with extending hairline ----- */
+.section-rule {{
+    display: flex; align-items: center; gap: 12px;
+    margin: 24px 0 8px 0;
+    color: {THEME['muted']};
+    font-size: 0.74rem; letter-spacing: 0.18em; font-weight: 600;
+    text-transform: uppercase;
 }}
-[data-testid="stMetricValue"] {{ color: {THEME['text']}; font-weight: 800; }}
-[data-testid="stDataFrame"] {{
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
+.section-rule::after {{
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.18), transparent);
+}}
+
+/* ----- KPI cards: gradient bg + colored accent top border ----- */
+[data-testid="stMetric"] {{
+    background: linear-gradient(180deg, {THEME['panel']} 0%, {THEME['panel_soft']} 100%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    position: relative;
     overflow: hidden;
 }}
+[data-testid="stMetric"]::before {{
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, {THEME['accent']}, {THEME['accent2']});
+    opacity: 0.85;
+}}
+[data-testid="stMetric"]:hover {{
+    transform: translateY(-2px);
+    border-color: rgba(90,140,255,0.5);
+    box-shadow: 0 8px 24px -10px rgba(90,140,255,0.35);
+}}
+[data-testid="stMetricLabel"] {{
+    color: {THEME['muted']} !important;
+    font-size: 0.72rem !important; font-weight: 600 !important;
+    letter-spacing: 0.10em; text-transform: uppercase;
+}}
+[data-testid="stMetricValue"] {{
+    color: {THEME['text']} !important; font-weight: 800 !important;
+    font-size: 1.6rem !important;
+}}
+/* Per-position accent stripes — first 5 KPIs get distinct top borders */
+.kpi-row [data-testid="column"]:nth-child(1) [data-testid="stMetric"]::before {{ background: {THEME['accent']}; }}
+.kpi-row [data-testid="column"]:nth-child(2) [data-testid="stMetric"]::before {{ background: {THEME['accent2']}; }}
+.kpi-row [data-testid="column"]:nth-child(3) [data-testid="stMetric"]::before {{ background: {THEME['violet']}; }}
+.kpi-row [data-testid="column"]:nth-child(4) [data-testid="stMetric"]::before {{ background: {THEME['warn']}; }}
+.kpi-row [data-testid="column"]:nth-child(5) [data-testid="stMetric"]::before {{ background: {THEME['danger']}; }}
+
+[data-testid="stDataFrame"] {{
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px; overflow: hidden;
+}}
+
 .help-card {{
     background: linear-gradient(180deg, {THEME['panel']} 0%, {THEME['panel_soft']} 100%);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 14px;
-    padding: 10px 12px;
+    padding: 12px 14px;
+}}
+
+/* ----- Topic pill bar ----- */
+.pill-row {{
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 4px 0 16px 0;
+}}
+.pill-row [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+    min-width: auto !important;
+}}
+
+/* Make Streamlit buttons used as pills more pill-like */
+.stButton > button {{
+    border-radius: 999px !important;
+    font-weight: 500 !important;
+    transition: all .15s ease !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+}}
+.stButton > button[kind="primary"] {{
+    background: linear-gradient(135deg, {THEME['accent']} 0%, {THEME['accent2']} 100%) !important;
+    color: #fff !important; border: none !important;
+    box-shadow: 0 4px 14px -4px rgba(90,140,255,0.55);
+}}
+.stButton > button[kind="secondary"] {{
+    background: rgba(255,255,255,0.04) !important;
+    color: {THEME['text']} !important;
+}}
+.stButton > button[kind="secondary"]:hover {{
+    background: rgba(90,140,255,0.12) !important;
+    border-color: {THEME['accent']} !important;
+}}
+
+/* ----- Feedback stream rows ----- */
+.fb-card {{
+    display: flex; gap: 14px; align-items: stretch;
+    padding: 11px 14px; margin-bottom: 6px;
+    background: linear-gradient(180deg, {THEME['panel']} 0%, {THEME['panel_soft']} 100%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-left: 3px solid rgba(90,140,255,0.4);
+    border-radius: 10px;
+}}
+.fb-card.neg {{ border-left-color: {THEME['danger']}; }}
+.fb-card.pos {{ border-left-color: {THEME['accent2']}; }}
+.fb-card.neu {{ border-left-color: {THEME['muted']}; }}
+.fb-num   {{ color: {THEME['muted']}; min-width: 26px; font-size: 0.78rem; padding-top: 2px; }}
+.fb-body  {{ flex: 1; color: {THEME['text']}; font-size: 0.9rem; line-height: 1.4; }}
+.fb-meta  {{ display: flex; flex-direction: column; gap: 4px; align-items: flex-end; min-width: 200px; }}
+.fb-chip  {{
+    font-size: 0.7rem; padding: 2px 9px; border-radius: 12px; white-space: nowrap;
+    background: rgba(90,140,255,0.14); color: {THEME['accent']};
+}}
+.fb-tag-sev-high {{ background: rgba(255,95,109,0.18); color: {THEME['danger']}; }}
+.fb-tag-sev-med  {{ background: rgba(255,176,32,0.18); color: {THEME['warn']}; }}
+.fb-tag-sev-low  {{ background: rgba(24,199,164,0.16); color: {THEME['accent2']}; }}
+.fb-tag-sent-neg {{ background: rgba(255,95,109,0.18); color: {THEME['danger']}; }}
+.fb-tag-sent-neu {{ background: rgba(155,176,214,0.18); color: {THEME['muted']}; }}
+.fb-tag-sent-pos {{ background: rgba(24,199,164,0.16); color: {THEME['accent2']}; }}
+
+/* ----- Sidebar polish ----- */
+[data-testid="stSidebar"] {{
+    background: linear-gradient(180deg, rgba(9,15,29,0.9), rgba(16,26,49,0.85)) !important;
+    border-right: 1px solid rgba(255,255,255,0.06);
+}}
+[data-testid="stSidebar"] .stTextInput input,
+[data-testid="stSidebar"] .stSelectbox > div {{
+    border-radius: 10px !important;
 }}
 </style>
 """
@@ -196,6 +306,176 @@ def consume_chart_click(base_key: str) -> None:
     """Bump the chart's widget-key suffix so the consumed click can't re-fire."""
     suffix_key = f"_chart_key_suffix_{base_key}"
     st.session_state[suffix_key] = st.session_state.get(suffix_key, 0) + 1
+
+
+# ---------- Reusable UI primitives ----------
+
+
+def section_rule(label: str) -> None:
+    """Render an ALL CAPS section header with a hairline that extends right."""
+    st.markdown(f"<div class='section-rule'>{label}</div>", unsafe_allow_html=True)
+
+
+def render_topic_pills(df: pd.DataFrame) -> None:
+    """Primary topic filter — clickable pills above every page.
+
+    Click a topic → drill_filters['raw_topic'] is set to that single topic; every
+    chart, KPI, and the feedback stream re-scope. Click again or hit "All" to clear.
+    """
+    topics = sorted(df["raw_topic"].dropna().astype(str).unique().tolist())
+    active = st.session_state.get("drill_filters", {}).get("raw_topic", [])
+    section_rule("Filter by Topic")
+    cols = st.columns(len(topics) + 1)
+    if cols[0].button(
+        "All Topics",
+        key="pill_all_topics",
+        use_container_width=True,
+        type="primary" if not active else "secondary",
+    ):
+        st.session_state["drill_filters"].pop("raw_topic", None)
+        st.rerun()
+    for i, topic in enumerate(topics, start=1):
+        is_active = topic in active
+        if cols[i].button(
+            topic,
+            key=f"pill_topic_{topic}",
+            use_container_width=True,
+            type="primary" if is_active else "secondary",
+        ):
+            if is_active:
+                st.session_state["drill_filters"].pop("raw_topic", None)
+            else:
+                st.session_state["drill_filters"]["raw_topic"] = [topic]
+            st.rerun()
+
+
+def render_quick_filters() -> None:
+    """One-click severity / sentiment / classification toggle chips."""
+    section_rule("Quick Filters")
+    chips = [
+        ("Negative Only", "sentiment", "Negative"),
+        ("High Severity Only", "severity", "High"),
+        ("Medium+ Severity", "severity", "Medium+"),
+        ("Suggestions Only", "classification", "Suggestion"),
+        ("Reviews Only", "classification", "General Review"),
+    ]
+    cols = st.columns(len(chips) + 1)
+    drill = st.session_state.setdefault("drill_filters", {})
+    for i, (label, field, value) in enumerate(chips):
+        active = False
+        if field == "severity" and value == "Medium+":
+            active = drill.get("severity") == ["High", "Medium"]
+        else:
+            active = drill.get(field) == [value]
+        if cols[i].button(
+            label,
+            key=f"qf_{field}_{value}",
+            use_container_width=True,
+            type="primary" if active else "secondary",
+        ):
+            if active:
+                drill.pop(field, None)
+            else:
+                if field == "severity" and value == "Medium+":
+                    drill[field] = ["High", "Medium"]
+                else:
+                    drill[field] = [value]
+            st.rerun()
+    if cols[-1].button("Reset Quick Filters", key="qf_reset", use_container_width=True):
+        for _, f, _ in chips:
+            drill.pop(f, None)
+        st.rerun()
+
+
+def _severity_class(severity: str) -> str:
+    return {"High": "fb-tag-sev-high", "Medium": "fb-tag-sev-med", "Low": "fb-tag-sev-low"}.get(
+        severity, "fb-tag-sev-low"
+    )
+
+
+def _sentiment_class(sentiment: str) -> str:
+    return {"Negative": "fb-tag-sent-neg", "Neutral": "fb-tag-sent-neu", "Positive": "fb-tag-sent-pos"}.get(
+        sentiment, "fb-tag-sent-neu"
+    )
+
+
+def _border_class(sentiment: str) -> str:
+    return {"Negative": "neg", "Positive": "pos", "Neutral": "neu"}.get(sentiment, "neu")
+
+
+def render_feedback_stream(df: pd.DataFrame, *, k: int = 20, key_prefix: str = "fb") -> None:
+    """Bottom-of-page list of actual comments matching the current filter scope.
+
+    Sorted by an internal pain score so the most pressing items show first.
+    Each row carries severity / sentiment chips and the child-issue chip; an
+    'Open' button below each card opens the issue-detail modal scoped to that
+    comment's child_issue.
+    """
+    section_rule(f"Feedback In Current View · {len(df):,} matching")
+
+    if df.empty:
+        st.info("No comments match the current filters. Use the topic pills or sidebar to broaden.")
+        return
+
+    sev_w = df["severity"].map({"Low": 1, "Medium": 2, "High": 3}).fillna(1)
+    sent_w = df["sentiment"].map({"Positive": 1, "Neutral": 2, "Negative": 3}).fillna(2)
+    pain = (sev_w * 2 + sent_w).rename("pain")
+    ranked = df.assign(_pain=pain).sort_values("_pain", ascending=False)
+
+    page_key = f"{key_prefix}_page"
+    page = int(st.session_state.get(page_key, 0))
+    start, end = page * k, page * k + k
+    slice_ = ranked.iloc[start:end]
+
+    rows_html = []
+    for offset, (_, r) in enumerate(slice_.iterrows()):
+        idx = start + offset + 1
+        sev = str(r.get("severity", "—"))
+        sent = str(r.get("sentiment", "—"))
+        comment = clip_text(str(r.get("original_feedback", "")), 280)
+        chip_text = clip_text(str(r.get("child_issue") or r.get("topic") or ""), 38)
+        rows_html.append(
+            f"<div class='fb-card {_border_class(sent)}'>"
+            f"<div class='fb-num'>{idx}</div>"
+            f"<div class='fb-body'>{comment}</div>"
+            f"<div class='fb-meta'>"
+            f"<span class='fb-chip'>{chip_text}</span>"
+            f"<span class='fb-chip {_severity_class(sev)}'>{sev}</span>"
+            f"<span class='fb-chip {_sentiment_class(sent)}'>{sent}</span>"
+            f"</div></div>"
+        )
+    st.markdown("\n".join(rows_html), unsafe_allow_html=True)
+
+    # Pagination + click-to-open per row.
+    nav_l, nav_m, nav_r = st.columns([1, 2, 1])
+    if page > 0 and nav_l.button("← Newer page", key=f"{key_prefix}_prev", use_container_width=True):
+        st.session_state[page_key] = max(0, page - 1)
+        st.rerun()
+    nav_m.caption(
+        f"Showing {start + 1:,}–{min(end, len(ranked)):,} of {len(ranked):,} "
+        f"(page {page + 1} of {(len(ranked) - 1) // k + 1})"
+    )
+    if end < len(ranked) and nav_r.button("Older page →", key=f"{key_prefix}_next", use_container_width=True):
+        st.session_state[page_key] = page + 1
+        st.rerun()
+
+    with st.expander("Open Detail For Specific Comment In Current View", expanded=False):
+        if slice_.empty:
+            st.caption("No comments to open.")
+        else:
+            opts = [
+                f"#{start + i + 1} · {clip_text(str(r['original_feedback']), 90)}"
+                for i, (_, r) in enumerate(slice_.iterrows())
+            ]
+            picked_label = st.selectbox(
+                "Pick a comment from this page", opts, key=f"{key_prefix}_pick"
+            )
+            if st.button("Open Issue Detail For Pick", key=f"{key_prefix}_pick_go", use_container_width=True):
+                pick_idx = opts.index(picked_label)
+                row = slice_.iloc[pick_idx]
+                child = str(row["child_issue"])
+                if child and child != "nan":
+                    open_issue_detail("child_issue", child)
 
 
 def record_sensitivity_tags(row: pd.Series) -> list[str]:
@@ -588,25 +868,25 @@ def build_filtered_view(df: pd.DataFrame) -> pd.DataFrame:
     only_sensitive = st.sidebar.checkbox("Only trust-sensitive", key="only_trust")
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("**Field filters** (deselect items to narrow)")
-
-    for field in FILTER_FIELDS:
-        all_options = sorted(df[field].dropna().astype(str).unique().tolist())
-        # Use the FULL universe of options as the default & list — not the post-filter
-        # subset — so deselecting one filter doesn't permanently hide options from
-        # the others (which used to silently swallow choices on every rerun).
-        selected = st.sidebar.multiselect(
-            pretty_field(field),
-            all_options,
-            default=all_options,
-            key=f"ms_{field}",
-        )
-        if selected and len(selected) < len(all_options):
-            narrowing[field] = selected
-        if selected:
-            out = out[out[field].astype(str).isin(selected)]
-        else:
-            out = out.iloc[0:0]
+    with st.sidebar.expander("Advanced field filters", expanded=False):
+        st.caption("Deselect items to narrow. Most users won't need this.")
+        for field in FILTER_FIELDS:
+            all_options = sorted(df[field].dropna().astype(str).unique().tolist())
+            # Use the FULL universe of options as the default & list — not the post-filter
+            # subset — so deselecting one filter doesn't permanently hide options from
+            # the others (which used to silently swallow choices on every rerun).
+            selected = st.multiselect(
+                pretty_field(field),
+                all_options,
+                default=all_options,
+                key=f"ms_{field}",
+            )
+            if selected and len(selected) < len(all_options):
+                narrowing[field] = selected
+            if selected:
+                out = out[out[field].astype(str).isin(selected)]
+            else:
+                out = out.iloc[0:0]
 
     if search.strip():
         q = search.lower().strip()
@@ -708,37 +988,16 @@ def render_kpis(df: pd.DataFrame) -> None:
     monetization_count = int(df["risk_tags"].map(lambda tags: "Monetization Risk" in tags).sum())
     high_count = int((df["severity"] == "High").sum())
     negative_count = int((df["sentiment"] == "Negative").sum())
-    top_parent = df["parent_issue"].value_counts().head(1)
-    top_child = df["child_issue"].value_counts().head(1)
 
+    section_rule("Key Metrics")
+    st.markdown("<div class='kpi-row'>", unsafe_allow_html=True)
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total Feedback", f"{len(df):,}")
     c2.metric("Negative Sentiment", f"{negative_count:,}")
     c3.metric("High Severity", f"{high_count:,}")
     c4.metric("Trust-Sensitive", f"{trust_count:,}")
     c5.metric("Monetization Risk", f"{monetization_count:,}")
-
-    c6, c7, c8 = st.columns(3)
-    c6.metric("Unique Parent Issues", f"{df['parent_issue'].nunique():,}")
-    c7.metric("Top Parent Issue", top_parent.index[0] if not top_parent.empty else "-")
-    c8.metric("Top Child Issue", clip_text(top_child.index[0], 30) if not top_child.empty else "-")
-
-    b1, b2, b3, b4, b5 = st.columns(5)
-    if b1.button("Filter: Negative", use_container_width=True):
-        set_drill_filter("sentiment", "Negative", append=False)
-        st.rerun()
-    if b2.button("Filter: High Severity", use_container_width=True):
-        set_drill_filter("severity", "High", append=False)
-        st.rerun()
-    if b3.button("Filter: Trust-Sensitive", use_container_width=True):
-        set_drill_filter("risk_primary", "Trust & Authenticity", append=False)
-        st.rerun()
-    if b4.button("Filter: Monetization", use_container_width=True):
-        set_drill_filter("risk_primary", "Monetization Risk", append=False)
-        st.rerun()
-    if b5.button("Reset Drill Filters", use_container_width=True):
-        clear_drill_filters()
-        st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def render_pm_guide() -> None:
@@ -1344,6 +1603,8 @@ def main() -> None:
     st.title("Islam360 Feedback Intelligence Dashboard")
     st.caption("Interactive PM view for issue prioritization, sensitivity risk, and feedback evidence.")
     render_active_filters_bar(len(df), len(filtered))
+    render_topic_pills(df)
+    render_quick_filters()
     render_pm_guide()
 
     pin_count = len(st.session_state.get("pinned_issues", []))
@@ -1378,12 +1639,15 @@ def main() -> None:
     if current_page == "Executive Overview":
         render_kpis(filtered)
         overview_tab(filtered)
+        render_feedback_stream(filtered, k=20, key_prefix="fs_overview")
     elif current_page == "Issue Hierarchy Explorer":
         render_kpis(filtered)
         hierarchy_tab(filtered)
+        render_feedback_stream(filtered, k=20, key_prefix="fs_hierarchy")
     elif current_page == "Islamic Sensitivity & Priority":
         render_kpis(filtered)
         risk_tab(filtered)
+        render_feedback_stream(filtered, k=20, key_prefix="fs_risk")
     elif current_page.startswith("Triage Workspace"):
         # Workspace operates on the FULL dataset so pinned issues remain
         # visible regardless of the current sidebar filter.
