@@ -1,0 +1,13 @@
+# Streamlit Cloud deployment manifest.
+#
+# When this file is present, Streamlit Cloud uses pip and ignores pyproject.toml
+# entirely — bypassing the Poetry "package not found" error. Keep this list lean:
+# the dashboard only needs the runtime imports of app/streamlit_app.py.
+# Heavy ML deps (torch, sentence-transformers, hdbscan, umap-learn, datasketch,
+# scikit-learn, anthropic, matplotlib, seaborn, fasttext) are NOT needed here —
+# they belong to the offline pipeline that produced classified_all_feedbacks.json.
+
+streamlit>=1.36
+pandas>=2.0
+plotly>=5.18
+numpy>=1.26
