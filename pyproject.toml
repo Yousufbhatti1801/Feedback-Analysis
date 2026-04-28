@@ -38,5 +38,8 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/feedback"]
 
+[tool.poetry]
+package-mode = false
+
 [tool.uv]
 package = true
