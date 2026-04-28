@@ -2,7 +2,7 @@
 name = "feedback-analysis"
 version = "0.1.0"
 description = "Dynamic feedback intelligence dashboard for Islam360 user feedback"
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "pandas>=2.2",
     "numpy>=1.26",
