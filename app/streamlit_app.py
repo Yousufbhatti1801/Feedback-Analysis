@@ -345,7 +345,9 @@ def render_topic_pills(df: pd.DataFrame) -> None:
             if is_active:
                 st.session_state["drill_filters"].pop("raw_topic", None)
             else:
-                st.session_state["drill_filters"]["raw_topic"] = [topic]
+                # Replace any stale taxonomy filter (e.g. a topic/child_issue left
+                # from a chart drilldown) so the pill count always matches the bucket.
+                select_issue_filter("raw_topic", topic)
             st.rerun()
 
 
@@ -499,7 +501,6 @@ def load_data() -> pd.DataFrame:
     df["parent_issue"] = df["parent_issue"].fillna("Unassigned / No Parent")
     df["original_feedback"] = df["original_feedback"].fillna("").astype(str)
     df["record_id"] = range(1, len(df) + 1)
-    df["is_issue"] = df["classification"].str.lower().isin(["complaint", "issue", "bug", "problem"])
     df["risk_tags"] = df.apply(record_sensitivity_tags, axis=1)
     df["risk_primary"] = df["risk_tags"].map(lambda tags: tags[0])
     df["priority_score"] = (
@@ -576,6 +577,53 @@ def set_drill_filter(name: str, value: str | list[str], *, append: bool = True) 
 
 def clear_drill_filters() -> None:
     st.session_state["drill_filters"] = {}
+
+
+def apply_drill_filters(df: pd.DataFrame, drill: dict[str, list[str]]) -> pd.DataFrame:
+    """Narrow ``df`` by the drill-filter dict — the single place category filters
+    are applied so every view (main scope + hierarchy detail) stays consistent.
+
+    ``risk_primary`` is special-cased: it filters on membership in the exploded
+    ``risk_tags`` list rather than an exact column match.
+    """
+    out = df
+    for key, values in drill.items():
+        if not values:
+            continue
+        if key == "risk_primary":
+            out = out[out["risk_tags"].map(lambda tags: any(v in tags for v in values))]
+        elif key in out.columns:
+            out = out[out[key].astype(str).isin([str(v) for v in values])]
+    return out
+
+
+def goto_page(name: str) -> None:
+    """Programmatically switch the top-level page.
+
+    ``st.radio`` with an explicit key ignores its ``index=`` argument once the
+    widget key exists in session_state — so setting ``active_page`` alone never
+    moved the view. We set BOTH the logical page and the radio's own widget key,
+    then rerun, so the navigation actually lands.
+    """
+    st.session_state["active_page"] = name
+    st.session_state["page_radio"] = name
+    st.rerun()
+
+
+# The mutually-exclusive taxonomy levels. Selecting an issue at any of these
+# levels should REPLACE a prior taxonomy scope rather than stack with it — a
+# row can only sit in one raw_topic/topic, so intersecting two would yield an
+# empty (broken-looking) view. Non-taxonomy filters (sentiment/severity) are
+# left intact so they still compose.
+TOPIC_LEVELS = ("raw_topic", "topic", "parent_issue", "child_issue")
+
+
+def select_issue_filter(level: str, value: str) -> None:
+    """Filter the whole dashboard to one issue, replacing any prior taxonomy scope."""
+    drill = st.session_state.setdefault("drill_filters", {})
+    for lvl in TOPIC_LEVELS:
+        drill.pop(lvl, None)
+    set_drill_filter(level, value, append=False)
 
 
 # ---------- Issue detail modal ----------
@@ -734,10 +782,12 @@ def _issue_detail_dialog() -> None:
         use_container_width=True, type="primary", key="modal_filter_btn",
     ):
         target_field = "risk_primary" if level == "risk_primary" else level
-        st.session_state["drill_filters"][target_field] = [value]
+        if target_field in TOPIC_LEVELS:
+            select_issue_filter(target_field, value)
+        else:
+            st.session_state["drill_filters"][target_field] = [value]
         st.session_state["pending_detail"] = None
-        st.session_state["active_page"] = "Feedback Evidence Table"
-        st.rerun()
+        goto_page("Feedback Evidence Table")
 
     # Sample feedbacks (3) — green-bordered cards, matching the reference design
     st.markdown(
@@ -790,8 +840,7 @@ def _issue_detail_dialog() -> None:
 def drill_and_navigate(filters: dict[str, list[str]], *, target_page: str = "Feedback Evidence Table") -> None:
     for field, values in filters.items():
         set_drill_filter(field, values, append=False)
-    st.session_state["active_page"] = target_page
-    st.rerun()
+    goto_page(target_page)
 
 
 def apply_preset(name: str) -> None:
@@ -819,13 +868,15 @@ def build_filtered_view(df: pd.DataFrame) -> pd.DataFrame:
     qj = st.sidebar.text_input(
         "🔍 Quick jump to issue",
         placeholder="search issue name…",
-        help="Find any topic / parent issue / child issue by name and open its detail panel.",
+        help="Find any topic / parent issue / child issue by name, then filter the whole dashboard to it or open its detail panel.",
         key="quick_jump_input",
     )
     if qj.strip():
         q = qj.strip().lower()
         matches: list[tuple[str, str]] = []
-        for level in ("child_issue", "parent_issue", "topic"):
+        # Search raw_topic first so typing "Bug" surfaces the coarse bucket (1,120
+        # rows) alongside the fine-grained *Bug* topic/child labels.
+        for level in ("raw_topic", "child_issue", "parent_issue", "topic"):
             for v in df[level].dropna().astype(str).unique():
                 if q in v.lower():
                     matches.append((level, v))
@@ -834,10 +885,25 @@ def build_filtered_view(df: pd.DataFrame) -> pd.DataFrame:
         if matches:
             options = [f"[{LEVEL_LABEL.get(l, l)}] {v}" for l, v in matches[:30]]
             picked_label = st.sidebar.selectbox("Matches", options, key="quick_jump_pick")
-            if st.sidebar.button("Open Issue Detail", use_container_width=True, key="quick_jump_go"):
+            qj_go, qj_detail = st.sidebar.columns(2)
+            if qj_go.button(
+                "Filter Dashboard By This",
+                use_container_width=True,
+                type="primary",
+                key="quick_jump_filter",
+            ):
+                idx = options.index(picked_label)
+                lvl, val = matches[idx]
+                select_issue_filter(lvl, val)
+                goto_page("Feedback Evidence Table")
+            if qj_detail.button("Show Comments", use_container_width=True, key="quick_jump_go"):
                 idx = options.index(picked_label)
                 lvl, val = matches[idx]
                 open_issue_detail(lvl, val)
+            st.sidebar.caption(
+                "Selecting an issue replaces any active topic filter. "
+                "Use **Clear All Filters** to reset."
+            )
         else:
             st.sidebar.caption("No matches.")
 
@@ -868,25 +934,44 @@ def build_filtered_view(df: pd.DataFrame) -> pd.DataFrame:
     only_sensitive = st.sidebar.checkbox("Only trust-sensitive", key="only_trust")
 
     st.sidebar.markdown("---")
+    drill = st.session_state.setdefault("drill_filters", {})
     with st.sidebar.expander("Advanced field filters", expanded=False):
-        st.caption("Deselect items to narrow. Most users won't need this.")
+        st.caption(
+            "These reflect the pills / chips / chart clicks above and edit the "
+            "same filter. Empty = no filter on that field."
+        )
         for field in FILTER_FIELDS:
             all_options = sorted(df[field].dropna().astype(str).unique().tolist())
-            # Use the FULL universe of options as the default & list — not the post-filter
-            # subset — so deselecting one filter doesn't permanently hide options from
-            # the others (which used to silently swallow choices on every rerun).
+            ms_key = f"ms_{field}"
+            shadow_key = f"_ms_shadow_{field}"
+            # The multiselect is an EDITOR for drill_filters[field] — one unified
+            # filter state. To let external actors (pill / chip / chart click /
+            # preset) drive the widget while still honoring the user's own edits,
+            # we keep a shadow of the drill value we last pushed. If the drill
+            # value changed since then (external change), re-seed the widget;
+            # otherwise leave the widget alone so the user's selection persists.
+            drill_vals = [v for v in drill.get(field, []) if v in all_options]
+            desired = drill_vals if drill_vals else all_options
+            if st.session_state.get(shadow_key) != drill_vals:
+                st.session_state[ms_key] = desired
+                st.session_state[shadow_key] = drill_vals
             selected = st.multiselect(
                 pretty_field(field),
                 all_options,
-                default=all_options,
-                key=f"ms_{field}",
+                key=ms_key,
             )
+            # Write the selection back into the single source of truth. A strict
+            # subset is a filter; selecting everything (or nothing) means "no
+            # filter on this field" — never blank the whole dashboard.
+            # Category fields render as "drill" chips (they now live in
+            # drill_filters), so we do NOT also add them to `narrowing` — that
+            # would double-list them in the active-filters bar.
             if selected and len(selected) < len(all_options):
-                narrowing[field] = selected
-            if selected:
-                out = out[out[field].astype(str).isin(selected)]
+                drill[field] = list(selected)
+                st.session_state[shadow_key] = list(selected)
             else:
-                out = out.iloc[0:0]
+                drill.pop(field, None)
+                st.session_state[shadow_key] = []
 
     if search.strip():
         q = search.lower().strip()
@@ -910,11 +995,10 @@ def build_filtered_view(df: pd.DataFrame) -> pd.DataFrame:
         out = out[out["risk_tags"].map(lambda tags: "Trust & Authenticity" in tags)]
         narrowing["only_sensitive"] = ["true"]
 
-    for key, values in st.session_state["drill_filters"].items():
-        if key == "risk_primary":
-            out = out[out["risk_tags"].map(lambda tags: any(v in tags for v in values))]
-        else:
-            out = out[out[key].astype(str).isin(values)]
+    # Single place category filters hit the DataFrame — includes the advanced
+    # multiselects (which now write into drill_filters above), pills, chips,
+    # chart clicks, quick-jump, and presets.
+    out = apply_drill_filters(out, st.session_state["drill_filters"])
 
     st.session_state["_active_sidebar_narrowing"] = narrowing
     return out
@@ -940,9 +1024,11 @@ def render_active_filters_bar(df_total: int, df_filtered: int) -> None:
     if has_any and head_r.button("Clear All Filters", use_container_width=True, key="clear_all_top"):
         clear_drill_filters()
         st.session_state["active_preset"] = "All Feedback"
-        # Reset sidebar widgets that have explicit keys.
+        # Reset sidebar widgets that have explicit keys, plus the shadow trackers
+        # so the advanced multiselects re-seed to "all options" (= no filter).
         for f in FILTER_FIELDS:
             st.session_state.pop(f"ms_{f}", None)
+            st.session_state.pop(f"_ms_shadow_{f}", None)
         for k in ("kw_search", "only_neg", "only_high", "only_parented", "only_trust"):
             st.session_state.pop(k, None)
         st.rerun()
@@ -1088,9 +1174,11 @@ def overview_tab(df: pd.DataFrame) -> None:
         selection = parse_selection(evt)
         points = selection.get("points", [])
         if points:
+            # Consume on any real click so a stale selection can't re-fire the
+            # modal on the next unrelated rerun, even if customdata is missing.
+            consume_chart_click("topic_chart")
             cd = points[0].get("customdata") or []
             if cd:
-                consume_chart_click("topic_chart")
                 open_issue_detail("topic", str(cd[0]))
 
     with c2:
@@ -1112,9 +1200,9 @@ def overview_tab(df: pd.DataFrame) -> None:
         selection = parse_selection(evt)
         points = selection.get("points", [])
         if points:
+            consume_chart_click("parent_chart")
             cd = points[0].get("customdata") or []
             if cd:
-                consume_chart_click("parent_chart")
                 open_issue_detail("parent_issue", str(cd[0]))
 
     c3, c4 = st.columns(2)
@@ -1214,9 +1302,9 @@ def hierarchy_tab(df: pd.DataFrame) -> None:
         selection = parse_selection(evt)
         points = selection.get("points", [])
         if points:
+            consume_chart_click("child_chart")
             cd = points[0].get("customdata") or []
             if cd:
-                consume_chart_click("child_chart")
                 open_issue_detail("child_issue", str(cd[0]))
 
         # Severity × sentiment heatmap per parent issue — at-a-glance pain map.
@@ -1255,10 +1343,13 @@ def hierarchy_tab(df: pd.DataFrame) -> None:
         if not active:
             st.info("Click a topic, parent issue, or child issue chart element to open detail.")
             return
-        detail_df = df.copy()
-        for key, values in active.items():
-            detail_df = detail_df[detail_df[key].isin(values)]
-        st.write(f"**Selected:** {', '.join([f'{k}={', '.join(v)}' for k, v in active.items()])}")
+        # Reuse the SAME filter logic as the main view so this panel can never
+        # diverge (handles risk_primary via risk_tags and coerces types).
+        detail_df = apply_drill_filters(df, active)
+        selected_summary = ", ".join(
+            f"{pretty_field(k)}={', '.join(str(x) for x in v)}" for k, v in active.items()
+        )
+        st.write(f"**Selected:** {selected_summary}")
         st.metric("Matching Feedback Count", f"{len(detail_df):,}")
         st.metric("Unique Child Issues", f"{detail_df['child_issue'].nunique():,}")
         st.metric("Negative %", f"{(detail_df['sentiment'] == 'Negative').mean() * 100:.1f}%")
@@ -1287,9 +1378,9 @@ def risk_tab(df: pd.DataFrame) -> None:
     selection = parse_selection(evt)
     points = selection.get("points", [])
     if points:
+        consume_chart_click("risk_chart")
         cd = points[0].get("customdata") or []
         if cd:
-            consume_chart_click("risk_chart")
             open_issue_detail("risk_primary", str(cd[0]))
 
     priority = exploded.copy()
@@ -1365,9 +1456,9 @@ def risk_tab(df: pd.DataFrame) -> None:
     selection = parse_selection(evt)
     points = selection.get("points", [])
     if points:
+        consume_chart_click("priority_matrix")
         cd = points[0].get("customdata") or []
         if cd:
-            consume_chart_click("priority_matrix")
             open_issue_detail("child_issue", str(cd[0]))
 
 
@@ -1493,9 +1584,11 @@ def workspace_tab(df: pd.DataFrame) -> None:
                 if bcol1.button("Open", key=f"ws_open_{i}_{pin['value'][:30]}", use_container_width=True):
                     open_issue_detail(pin["level"], pin["value"])
                 if bcol2.button("Filter", key=f"ws_filter_{i}_{pin['value'][:30]}", use_container_width=True):
-                    st.session_state["drill_filters"][pin["level"]] = [pin["value"]]
-                    st.session_state["active_page"] = "Feedback Evidence Table"
-                    st.rerun()
+                    if pin["level"] in TOPIC_LEVELS:
+                        select_issue_filter(pin["level"], pin["value"])
+                    else:
+                        st.session_state["drill_filters"][pin["level"]] = [pin["value"]]
+                    goto_page("Feedback Evidence Table")
                 if bcol3.button("Remove", key=f"ws_remove_{i}_{pin['value'][:30]}", use_container_width=True):
                     unpin_issue(pin["level"], pin["value"])
                     st.rerun()
@@ -1623,10 +1716,14 @@ def main() -> None:
     stored_page = st.session_state.get("active_page", "Executive Overview")
     if stored_page.startswith("Triage Workspace") and stored_page not in pages:
         stored_page = workspace_label
+    # Seed the radio's OWN widget key so programmatic navigation (goto_page)
+    # actually moves the view — a keyed st.radio ignores index= once its key
+    # exists in session_state. After seeding, the widget key is authoritative.
+    if st.session_state.get("page_radio") not in pages:
+        st.session_state["page_radio"] = stored_page if stored_page in pages else pages[0]
     current_page = st.radio(
         "Dashboard View",
         pages,
-        index=pages.index(stored_page) if stored_page in pages else 0,
         horizontal=True,
         key="page_radio",
     )
